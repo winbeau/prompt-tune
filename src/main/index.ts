@@ -18,7 +18,14 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join, resolve, sep } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { z } from 'zod'
-import { AppError, providerSchema, settingsSchema, type Settings, type Task } from '../shared/types'
+import {
+  AppError,
+  fontSizes,
+  providerSchema,
+  settingsSchema,
+  type Settings,
+  type Task
+} from '../shared/types'
 import { Service } from './service'
 import { CredentialVault, Store } from './storage'
 
@@ -45,6 +52,16 @@ function updateTheme(settings: Settings): void {
   for (const window of BrowserWindow.getAllWindows())
     window.setBackgroundColor(nativeTheme.shouldUseDarkColors ? '#111113' : '#fafafa')
 }
+function changeFontSize(direction: number) {
+  const settings = service.store.settings()
+  return service.saveSettings({
+    ...settings,
+    fontSize:
+      direction === 0
+        ? fontSizes.default
+        : Math.min(fontSizes.max, Math.max(fontSizes.min, settings.fontSize + direction))
+  })
+}
 function loadWindow(window: BrowserWindow, settings = false, tab = 'general'): void {
   const suffix = settings ? `?window=settings#${tab}` : ''
   if (process.env.ELECTRON_RENDERER_URL) void window.loadURL(`${process.env.ELECTRON_RENDERER_URL}${suffix}`)
@@ -59,8 +76,14 @@ function secureWindow(window: BrowserWindow): void {
   )
   window.on('enter-full-screen', () => window.setFullScreen(false))
   window.webContents.on('before-input-event', (event, input) => {
-    if (input.type !== 'keyDown' || input.alt || input.shift || !(isMac ? input.meta : input.control)) return
+    if (input.type !== 'keyDown' || input.alt || !(isMac ? input.meta : input.control)) return
     const key = input.key.toLowerCase()
+    if (['+', '=', '-', '0'].includes(key)) {
+      event.preventDefault()
+      changeFontSize(key === '0' ? 0 : key === '-' ? -1 : 1)
+      return
+    }
+    if (input.shift) return
     if (key === 'w') {
       event.preventDefault()
       window.close()
@@ -76,7 +99,7 @@ function secureWindow(window: BrowserWindow): void {
   })
 }
 function visibleBounds(settings: Settings) {
-  if (!settings.bounds) return { width: 540, height: 328 }
+  if (!settings.bounds) return { width: 480, height: 352 }
   const bounds = settings.bounds
   const area = screen.getDisplayMatching(bounds).workArea
   return {
@@ -153,8 +176,8 @@ function showSettings(tab = 'general'): void {
     return
   }
   const window = new BrowserWindow({
-    width: 820,
-    height: 700,
+    width: 740,
+    height: 620,
     minWidth: 680,
     minHeight: 560,
     title: text('PromptTune Settings', 'PromptTune 设置'),
@@ -234,6 +257,26 @@ function updateMenu(): void {
       ]
     },
     {
+      label: text('View', '显示'),
+      submenu: [
+        {
+          label: text('Larger Text', '放大字体'),
+          accelerator: 'CommandOrControl+=',
+          click: () => changeFontSize(1)
+        },
+        {
+          label: text('Smaller Text', '缩小字体'),
+          accelerator: 'CommandOrControl+-',
+          click: () => changeFontSize(-1)
+        },
+        {
+          label: text('Default Text Size', '恢复默认字号'),
+          accelerator: 'CommandOrControl+0',
+          click: () => changeFontSize(0)
+        }
+      ]
+    },
+    {
       label: text('Window', '窗口'),
       submenu: [
         { label: text('Minimize', '最小化'), role: 'minimize' },
@@ -294,6 +337,7 @@ function handle(channel: string, fn: (event: Electron.IpcMainInvokeEvent, ...arg
   })
 }
 function registerIpc(): void {
+  handle('font-size-change', (_event, value) => changeFontSize(z.number().int().min(-1).max(1).parse(value)))
   handle('state', () => service.state())
   handle('settings-save', (_event, value) => service.saveSettings(value))
   handle('provider-save', (_event, value, key) =>

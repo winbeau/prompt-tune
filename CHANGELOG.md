@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.2
+
+- Larger 16px default text, adjustable from 12–24px with a custom slider and persistent cross-window settings.
+- Command/Control +/−/0 shortcuts and menu actions for text size; text areas retain three visible lines at every size.
+- Narrower 480px floating panel and a smaller, denser settings window.
+- Comfortable tab padding, gentle selection states and soft sage/blue Tune/Translate capsules.
+- Updated screenshots and a real DeepSeek translation/tuning GIF in the README.
+
 ## 0.1.1
 
 - Compact five-row panel with three-line input/output that smoothly grow with content.

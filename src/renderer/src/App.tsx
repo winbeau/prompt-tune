@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useLayoutEffect, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { X, Settings2, History, Lightbulb, SlidersHorizontal, Check, LoaderCircle } from 'lucide-react'
 import type { AppState, Reply } from '../../shared/types'
@@ -45,6 +45,9 @@ export function App() {
     }
   }, [message])
   useEffect(() => window.onSettingsTab(setTab), [])
+  useLayoutEffect(() => {
+    if (state) document.documentElement.style.fontSize = `${state.settings.fontSize}px`
+  }, [state?.settings.fontSize])
   useEffect(() => {
     const preference = window.matchMedia('(prefers-color-scheme: dark)')
     const apply = () => {
@@ -61,6 +64,11 @@ export function App() {
   }, [state?.settings.theme])
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && !event.altKey && ['+', '=', '-', '0'].includes(event.key)) {
+        event.preventDefault()
+        void window.desktop.changeFontSize(event.key === '0' ? 0 : event.key === '-' ? -1 : 1)
+        return
+      }
       if ((event.metaKey || event.ctrlKey) && event.key === ',') {
         event.preventDefault()
         void window.desktop.openSettings()
@@ -131,6 +139,7 @@ export function App() {
                 <button
                   key={id}
                   className={tab === id ? 'selected' : ''}
+                  aria-current={tab === id ? 'page' : undefined}
                   onClick={() => {
                     setTab(id)
                     location.hash = id

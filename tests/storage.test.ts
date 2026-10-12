@@ -45,6 +45,14 @@ function item(id = randomUUID(), mode: 'tune' | 'translate' = 'tune'): HistoryIt
   }
 }
 describe('history and durable summary scheduling', () => {
+  it('upgrades saved preferences with the larger text default without changing existing choices', () => {
+    const db = store()
+    const { fontSize: _fontSize, ...legacy } = { ...db.settings(), language: 'zh-CN', theme: 'black' }
+    db.db.prepare('UPDATE settings SET data=? WHERE id=1').run(JSON.stringify(legacy))
+    expect(db.settings()).toMatchObject({ fontSize: 16, language: 'zh-CN', theme: 'black' })
+    db.saveSettings({ ...db.settings(), fontSize: 22 })
+    expect(db.settings().fontSize).toBe(22)
+  })
   it('queues at rounds 10 and 20 and does not count retries as a new round', () => {
     const db = store()
     const first = item()

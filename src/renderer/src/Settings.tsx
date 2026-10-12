@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type CSSProperties } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   Check,
@@ -10,6 +10,7 @@ import {
   FileText,
   Lightbulb,
   LoaderCircle,
+  Minus,
   Plus,
   RefreshCw,
   Search,
@@ -18,6 +19,7 @@ import {
   Upload,
   X
 } from 'lucide-react'
+import { fontSizes } from '../../shared/types'
 import type {
   Binding,
   HistoryItem,
@@ -84,6 +86,50 @@ export function General() {
             <option value="black">{t('black')}</option>
           </select>
         </label>
+        <div className="font-preference">
+          <div className="font-preference-heading">
+            <label htmlFor="font-size">{t('fontSize')}</label>
+            <output htmlFor="font-size">{settings.fontSize} px</output>
+            <button className="text-button" onClick={() => void perform(window.desktop.changeFontSize(0))}>
+              {t('defaultSize')}
+            </button>
+          </div>
+          <div className="font-size-controls">
+            <button
+              className="icon-button"
+              aria-label={t('smallerText')}
+              title={t('smallerText')}
+              disabled={settings.fontSize === fontSizes.min}
+              onClick={() => void perform(window.desktop.changeFontSize(-1))}
+            >
+              <Minus size={14} />
+            </button>
+            <input
+              id="font-size"
+              type="range"
+              min={fontSizes.min}
+              max={fontSizes.max}
+              step={1}
+              value={settings.fontSize}
+              aria-valuetext={`${settings.fontSize} px`}
+              style={
+                {
+                  '--range-progress': `${((settings.fontSize - fontSizes.min) / (fontSizes.max - fontSizes.min)) * 100}%`
+                } as CSSProperties
+              }
+              onChange={(event) => update({ fontSize: Number(event.target.value) })}
+            />
+            <button
+              className="icon-button"
+              aria-label={t('largerText')}
+              title={t('largerText')}
+              disabled={settings.fontSize === fontSizes.max}
+              onClick={() => void perform(window.desktop.changeFontSize(1))}
+            >
+              <Plus size={14} />
+            </button>
+          </div>
+        </div>
         <Toggle
           label={t('alwaysOnTop')}
           checked={settings.alwaysOnTop}
@@ -186,7 +232,10 @@ export function General() {
         </div>
         {state.shortcutError && <p className="field-error">{t('shortcutConflict')}</p>}
         {[
-          ['shortcutRun', `${modifier} ↵`],
+          ['shortcutRun', '↵'],
+          ['largerText', `${modifier} +`],
+          ['smallerText', `${modifier} −`],
+          ['defaultSize', `${modifier} 0`],
           ['shortcutSettings', `${modifier} ,`],
           ['shortcutClose', `${modifier} W`],
           ['shortcutQuit', `${modifier} Q`]
@@ -690,7 +739,6 @@ export function HistoryPage() {
     <div className="history-page">
       <SectionTitle
         title={t('historyIntro')}
-        description={t('historySub')}
         action={
           <button
             className="secondary-button"
@@ -722,7 +770,7 @@ export function HistoryPage() {
           {items.map((item) => (
             <details key={item.id} id={`history-${item.id}`} className="history-card">
               <summary>
-                <span className={`history-mode ${item.mode}`}>{t(item.mode)}</span>
+                <span className={`history-mode mode-pill ${item.mode}`}>{t(item.mode)}</span>
                 <span className="history-preview">{item.input}</span>
                 <time>
                   {new Date(item.createdAt).toLocaleString(state.locale, {
@@ -776,7 +824,7 @@ export function HistoryPage() {
       {state.historyCount > 0 && (
         <div className="settings-tools">
           <span className="muted">
-            {state.historyCount.toLocaleString()} {t('rounds')}
+            {state.historyCount.toLocaleString()} {t('rounds', { count: state.historyCount })}
           </span>
           <button
             className="text-button danger"
@@ -812,7 +860,6 @@ export function InsightsPage() {
     <div className="insights-page">
       <SectionTitle
         title={t('insightsIntro')}
-        description={t('insightsSub')}
         action={
           <button
             className="secondary-button"

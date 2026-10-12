@@ -4,6 +4,7 @@ import type { AppState, DesktopAPI, RunEvent } from '../shared/types'
 const api: DesktopAPI = {
   state: () => ipcRenderer.invoke('state'),
   saveSettings: (settings) => ipcRenderer.invoke('settings-save', settings),
+  changeFontSize: (direction) => ipcRenderer.invoke('font-size-change', direction),
   saveProvider: (provider, key) => ipcRenderer.invoke('provider-save', provider, key),
   removeProvider: (id) => ipcRenderer.invoke('provider-remove', id),
   removeKey: (id) => ipcRenderer.invoke('key-remove', id),

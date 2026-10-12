@@ -6,7 +6,11 @@ Translate Chinese prompts, lightly tune English prompts, and learn from recurrin
 
 ![PromptTune floating panel](docs/images/floating-panel.png)
 
-五行紧凑面板：状态栏、模式开关、三行输入、模型与操作、三行输出。输入和输出随内容平滑增高。支持跟随系统、Light、Black 三种配色，默认跟随系统。
+默认 480px 宽的五行悬浮面板，输入和输出均从三行开始，随内容平滑增高。文字默认 16px，可在设置中调整为 12–24px，立即作用于所有窗口并记住选择。支持跟随系统、Light、Black 三种配色；Tune 使用浅绿、Translate 使用雾蓝。
+
+![Real DeepSeek translation and tuning demo](docs/images/prompt-tune-demo.gif)
+
+实录：使用已配置的 DeepSeek API 完成英文 Tune 与中文翻译，展示输入、等待、流式输出、模式切换和复制反馈。录制样例未写入个人历史。
 
 ## 使用 / Getting started
 
@@ -17,7 +21,7 @@ Translate Chinese prompts, lightly tune English prompts, and learn from recurrin
 3. 回到悬浮窗选择 **Translate · CN → EN** 或 **Tune · EN → EN**，粘贴内容，按 `Return`。
 4. 点击复制，只复制最终英文 Prompt。
 
-v0.1.1 macOS 包未进行 Developer ID 签名或公证。首次从网上下载安装，若被系统拦截，可在系统设置 → 隐私与安全性中选择“仍要打开”。安装包要求 macOS 13 或更新版本；本次实机验证环境为 macOS 27 / Apple Silicon。Windows 构建流程已配置，实机验证另行记录，不把它列为已验证的平台。
+v0.1.2 macOS 包未进行 Developer ID 签名或公证。首次从网上下载安装，若被系统拦截，可在系统设置 → 隐私与安全性中选择“仍要打开”。安装包要求 macOS 13 或更新版本；本次实机验证环境为 macOS 27 / Apple Silicon。Windows 实机交互尚未验证。
 
 ## 功能 / Features
 
@@ -31,6 +35,7 @@ v0.1.1 macOS 包未进行 Developer ID 签名或公证。首次从网上下载�
 | **本地历史**            | 检索、查看、逐条删除、清空、JSON 导出；可在设置中关闭历史。                                                            |
 | **表达习惯**            | 默认每 10 个成功保存的独立轮次后台总结；来源记录可查看、可否认纠正、可忽略或标记已掌握。                               |
 | **悬浮窗**              | 默认置顶，边缘拖拽缩放，标题栏拖动，位置记忆，托盘呼出，独立设置窗。禁用全屏与最大化。                                 |
+| **字号与外观**          | 默认 16px，12–24px 可调；跨窗口同步并持久化，放大不改变面板宽度。淡雅模式胶囊、紧凑设置页与舒适的 Tab 间距。           |
 
 Pi 只作为分层设计参考，运行时使用 PromptTune 自己的模型层。
 OpenCode 的模型按官方 endpoint 目录选择协议；未知模型需要手动指定，不根据名称猜测。Gemini 原生协议和多模态模型暂不支持。
@@ -41,7 +46,11 @@ OpenCode 的模型按官方 endpoint 目录选择协议；未知模型需要手�
 | 操作            | macOS             | Windows                    |
 | --------------- | ----------------- | -------------------------- |
 | 呼出 / 隐藏     | `⌘⇧Space`，可修改 | `Ctrl+Shift+Space`，可修改 |
-| 提交            | `⌘Enter`          | `Ctrl+Enter`               |
+| 提交            | `Return`          | `Enter`                    |
+| 换行            | `Shift+Return`    | `Shift+Enter`              |
+| 放大字体        | `⌘+` / `⌘=`       | `Ctrl+` / `Ctrl+=`         |
+| 缩小字体        | `⌘−`              | `Ctrl+−`                   |
+| 恢复默认字号    | `⌘0`              | `Ctrl+0`                   |
 | 设置            | `⌘,`              | `Ctrl+,`                   |
 | 关闭当前窗口    | `⌘W`              | `Ctrl+W`                   |
 | 退出应用        | `⌘Q`              | `Ctrl+Q`                   |
@@ -76,6 +85,14 @@ npm run package:mac
 ```
 
 测试覆盖协议解析、受保护片段、凭据、批次与证据，并通过实际 Electron 窗口验证两种模式、语言切换、快捷键、重启和第 10 轮总结。模拟接口验证不等于真实模型的语言质量评测。
+
+v0.1.2 通过 27 项核心测试和 20 项 macOS 桌面检查，包括字号上下限、旧设置升级、快捷键、两窗口同步、最窄窗口布局与重启恢复。另以真实 DeepSeek 完成两条公开演示样例；这属于连接与功能实测，不代表系统性的语言质量评测。
+
+![Text size controls](docs/images/settings.png)
+
+![History with colored mode capsules](docs/images/history.png)
+
+历史页截图使用自动化测试样例；GIF 使用真实 API 返回。
 
 - [当前实现、验证范围与限制](docs/IMPLEMENTATION.md)
 - [开发计划与后续验收项](docs/DEVELOPMENT_PLAN.md)

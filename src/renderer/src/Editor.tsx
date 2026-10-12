@@ -7,14 +7,18 @@ import { WindowControls } from './WindowControls'
 
 function useTextHeight(value: string, widthRef: React.RefObject<HTMLElement | null>) {
   const mirror = useRef<HTMLDivElement>(null)
-  const [height, setHeight] = useState(84)
+  const [height, setHeight] = useState(98)
   useLayoutEffect(() => {
     const measure = () => {
-      if (mirror.current) setHeight(Math.max(84, Math.min(mirror.current.scrollHeight + 24, 360)))
+      if (mirror.current) {
+        const lineHeight = Number.parseFloat(getComputedStyle(mirror.current).lineHeight)
+        setHeight(Math.ceil(Math.max(lineHeight * 3 + 24, Math.min(mirror.current.scrollHeight + 24, 360))))
+      }
     }
     measure()
     const observer = new ResizeObserver(measure)
     if (widthRef.current) observer.observe(widthRef.current)
+    if (mirror.current) observer.observe(mirror.current)
     return () => observer.disconnect()
   }, [value])
   return { mirror, height }
@@ -245,7 +249,9 @@ export function Editor() {
           <div className="compact-intro">
             <h1>Your intent. Clearer English.</h1>
             <div className="compact-mode">
-              <span aria-live="polite">{mode === 'translate' ? 'CN → EN' : 'EN → EN'}</span>
+              <span className={`mode-pill ${mode}`} aria-live="polite">
+                {mode === 'translate' ? 'CN → EN' : 'EN → EN'}
+              </span>
               <button
                 className="mode-slider"
                 role="switch"
@@ -306,7 +312,7 @@ export function Editor() {
             </div>
             <div className="compact-actions">
               <button
-                className={`primary-button compact-submit ${busy ? 'is-running' : ''}`}
+                className={`primary-button compact-submit ${mode} ${busy ? 'is-running' : ''}`}
                 aria-label={t(busy ? 'stop' : mode === 'translate' ? 'runTranslate' : 'runTune')}
                 title={ready ? 'Return' : t('apiSetup')}
                 disabled={ready && !busy && !text.trim()}

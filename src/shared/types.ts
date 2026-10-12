@@ -6,6 +6,7 @@ export const modeSchema = z.enum(['translate', 'tune'])
 export type Mode = z.infer<typeof modeSchema>
 export type Task = Mode | 'summarize'
 export type Locale = 'en' | 'zh-CN'
+export const fontSizes = { min: 12, max: 24, default: 16 } as const
 
 export const modelSchema = z.object({
   id: z.string().trim().min(1).max(200),
@@ -60,6 +61,7 @@ export type Binding = { providerId: string; modelId: string }
 export const settingsSchema = z.object({
   language: z.enum(['system', 'en', 'zh-CN']),
   theme: z.enum(['system', 'light', 'black']).default('system'),
+  fontSize: z.number().int().min(fontSizes.min).max(fontSizes.max).default(fontSizes.default),
   explanationLanguage: z.enum(['ui', 'en', 'zh-CN']),
   shortcut: z.string().min(1).max(100),
   alwaysOnTop: z.boolean(),
@@ -155,6 +157,7 @@ export type Reply<T> = { ok: true; data: T } | { ok: false; error: string }
 export type DesktopAPI = {
   state(): Promise<Reply<AppState>>
   saveSettings(settings: Settings): Promise<Reply<AppState>>
+  changeFontSize(direction: -1 | 0 | 1): Promise<Reply<AppState>>
   saveProvider(provider: Provider, key?: string): Promise<Reply<AppState>>
   removeProvider(id: string): Promise<Reply<AppState>>
   removeKey(id: string): Promise<Reply<AppState>>
@@ -196,6 +199,7 @@ export class AppError extends Error {
 export const defaultSettings: Settings = {
   language: 'system',
   theme: 'system',
+  fontSize: fontSizes.default,
   explanationLanguage: 'ui',
   shortcut: 'CommandOrControl+Shift+Space',
   alwaysOnTop: true,
