@@ -11,6 +11,7 @@ files:
   - THIRD_PARTY_NOTICES.md
   - build/trayTemplate.png
 asar: true
+afterPack: scripts/sign-macos.cjs
 extraResources:
   - from: node_modules/electron/dist/LICENSE
     to: licenses/ELECTRON-LICENSE

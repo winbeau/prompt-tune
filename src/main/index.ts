@@ -128,6 +128,7 @@ function createMain(): BrowserWindow {
       preload: join(__dirname, '../preload/index.js'),
       contextIsolation: true,
       nodeIntegration: false,
+      backgroundThrottling: false,
       sandbox: true
     }
   })
@@ -382,10 +383,11 @@ function registerIpc(): void {
   handle('window-content-resize', (event, value) => {
     const window = BrowserWindow.fromWebContents(event.sender)
     if (window !== mainWindow || !window) throw new AppError('invalid_sender')
-    const height = z.number().finite().min(200).max(5000).parse(value)
+    const height = z.number().finite().min(200).max(5000000).parse(value)
     const bounds = window.getBounds()
     const area = screen.getDisplayMatching(bounds).workArea
-    const nextHeight = Math.min(Math.max(Math.ceil(height), 304), area.height)
+    const frameHeight = bounds.height - window.getContentBounds().height
+    const nextHeight = Math.min(Math.max(Math.ceil(height) + frameHeight, 304), area.height)
     if (Math.abs(nextHeight - bounds.height) > 1)
       window.setBounds(
         {
@@ -393,7 +395,7 @@ function registerIpc(): void {
           height: nextHeight,
           y: Math.max(area.y, Math.min(bounds.y, area.y + area.height - nextHeight))
         },
-        isMac
+        false
       )
     return null
   })

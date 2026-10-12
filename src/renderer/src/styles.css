@@ -12,8 +12,8 @@
   --hover: #eeeeef;
   --fg: #27272b;
   --soft: #52525b;
-  --muted: #83838d;
-  --faint: #a1a1aa;
+  --muted: #6e6e79;
+  --faint: #757580;
   --line: #e5e5e9;
   --line-strong: #c9c9d0;
   --green: #26854f;
@@ -22,15 +22,16 @@
   --danger: #b64848;
   --warning: #9c7734;
   --shadow: #0000000c;
-  --tune-text: #477563;
+  --tune-text: #406b59;
   --tune-bg: #edf4ef;
   --tune-border: #d2e2d8;
   --tune-solid: #dcebe2;
-  --translate-text: #4b7392;
+  --translate-text: #416987;
   --translate-bg: #edf3f9;
   --translate-border: #d6e4ef;
   --translate-solid: #e0ecf6;
   --focus-accent: #6e9681;
+  --palette-duration: 150ms;
   color: var(--fg);
   background: var(--bg);
 }
@@ -41,8 +42,8 @@
   --hover: #25252b;
   --fg: #eeeeef;
   --soft: #b0b0b9;
-  --muted: #85858f;
-  --faint: #62626b;
+  --muted: #9696a0;
+  --faint: #82828c;
   --line: #2c2c32;
   --line-strong: #45454f;
   --green: #82c99a;
@@ -60,6 +61,9 @@
   --translate-border: #395469;
   --translate-solid: #30485b;
   --focus-accent: #96b5a2;
+}
+:root[data-theme-changing] {
+  --palette-duration: 0ms;
 }
 * {
   box-sizing: border-box;
@@ -102,7 +106,7 @@ select:focus-visible,
 textarea:focus-visible,
 button:focus-visible,
 summary:focus-visible {
-  outline: 2px solid var(--soft);
+  outline: 2px solid var(--focus-accent);
   outline-offset: 3px;
 }
 input[type='checkbox'] {
@@ -275,32 +279,54 @@ textarea::placeholder {
 .change-card {
   padding: 12px;
   border: 1px solid var(--line-strong);
-  border-radius: 8px;
+  border-radius: 11px;
   background: var(--surface);
 }
-.change-card > div {
+.change-heading {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
+  justify-content: space-between;
   gap: 8px;
+  margin-bottom: 9px;
 }
 .change-tag {
-  font-size: 0.769231rem;
-  border-radius: 4px;
-  padding: 3px 5px;
-  background: var(--line-strong);
-  color: var(--fg);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.730769rem;
+  font-weight: 550;
+  line-height: 1.4;
+  border: 1px solid var(--tune-border);
+  border-radius: 99px;
+  padding: 3px 8px;
+  background: var(--tune-bg);
+  color: var(--tune-text);
 }
 .change-tag.style_suggestion {
-  background: var(--line-strong);
+  background: color-mix(in srgb, var(--warning) 9%, var(--surface));
+  border-color: color-mix(in srgb, var(--warning) 23%, var(--surface));
   color: var(--warning);
 }
+.change-tag.translation_choice {
+  background: var(--translate-bg);
+  border-color: var(--translate-border);
+  color: var(--translate-text);
+}
+.change-dismiss {
+  width: 24px;
+  height: 24px;
+}
 .change-diff {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 14px minmax(0, 1fr);
   align-items: center;
-  gap: 7px;
+  gap: 10px;
   font-size: 0.846154rem;
+  line-height: 1.5;
   overflow-wrap: anywhere;
+}
+.change-diff > svg {
+  color: var(--muted);
 }
 del {
   color: var(--danger);
@@ -531,7 +557,7 @@ ins {
   background: var(--line-strong);
   border: 1px solid var(--line-strong);
   padding: 2px;
-  transition: background 0.15s;
+  transition: background var(--palette-duration);
 }
 .toggle-track:after {
   content: '';
@@ -1368,7 +1394,7 @@ input[type='checkbox'] {
   background: var(--hover);
   border: 1px solid var(--line-strong);
   padding: 2px;
-  transition: background 180ms;
+  transition: background var(--palette-duration);
 }
 .mode-slider > span {
   display: block;
@@ -1379,7 +1405,7 @@ input[type='checkbox'] {
   transform: translateX(0);
   transition:
     transform 200ms cubic-bezier(0.22, 0.68, 0, 1),
-    background 180ms;
+    background var(--palette-duration);
 }
 .mode-slider[aria-checked='true'] {
   background: var(--accent);
@@ -1398,7 +1424,7 @@ input[type='checkbox'] {
   background: var(--surface);
   transition:
     height 190ms cubic-bezier(0.22, 0.68, 0, 1),
-    border-color 160ms;
+    border-color var(--palette-duration);
   overflow: hidden;
 }
 .compact-field:focus-within {
@@ -1439,11 +1465,11 @@ input[type='checkbox'] {
 .text-mirror {
   position: absolute;
   top: 0;
-  left: 12px;
-  right: 12px;
+  left: 0;
+  width: 100%;
   visibility: hidden;
   pointer-events: none;
-  padding: 0;
+  padding: 11px 12px;
   min-height: 0;
 }
 .compact-run-row {
@@ -1533,8 +1559,21 @@ input[type='checkbox'] {
 }
 .compact-edit-notes > button {
   font-size: 0.769231rem;
-  padding: 0;
+  padding: 4px 8px;
+  margin-left: -8px;
+  border-radius: 7px;
   color: var(--muted);
+  transition:
+    background var(--palette-duration),
+    color var(--palette-duration);
+}
+.compact-edit-notes > button:hover,
+.compact-edit-notes > button[aria-expanded='true'] {
+  background: var(--tune-bg);
+  color: var(--tune-text);
+}
+.compact-edit-notes > button > svg {
+  transition: transform 180ms ease;
 }
 .compact-edit-notes .changes-list {
   margin-top: 8px;
@@ -1590,7 +1629,7 @@ input[type='checkbox'] {
   align-items: center;
   justify-content: center;
   transition:
-    background 150ms ease,
+    background var(--palette-duration) ease,
     transform 120ms ease;
 }
 .window-control svg {
@@ -1626,7 +1665,7 @@ input[type='checkbox'] {
 }
 .compact-submit {
   transition:
-    background 150ms ease,
+    background var(--palette-duration) ease,
     transform 120ms ease,
     opacity 150ms ease;
 }
@@ -1637,8 +1676,8 @@ input[type='checkbox'] {
   border-color: transparent;
   background: transparent;
   transition:
-    color 150ms,
-    background 150ms,
+    color var(--palette-duration),
+    background var(--palette-duration),
     opacity 150ms,
     transform 120ms;
 }
@@ -1688,14 +1727,14 @@ input[type='checkbox'] {
 }
 .settings-tabs button {
   transition:
-    background 150ms,
-    color 150ms;
+    background var(--palette-duration),
+    color var(--palette-duration);
   border-radius: 7px;
 }
 .toggle-track,
 .toggle-track:after {
   transition:
-    background 170ms,
+    background var(--palette-duration),
     transform 180ms cubic-bezier(0.22, 0.68, 0, 1);
 }
 .form-grid input:focus,
@@ -1703,7 +1742,7 @@ input[type='checkbox'] {
   border-color: var(--line-strong);
 }
 .text-button {
-  transition: color 150ms;
+  transition: color var(--palette-duration);
 }
 .toast {
   border-color: var(--line);
@@ -1815,7 +1854,7 @@ input[type='checkbox'] {
   background: var(--focus-accent);
   box-shadow: 0 1px 4px #0000001c;
   transition:
-    box-shadow 150ms,
+    box-shadow var(--palette-duration),
     transform 150ms;
 }
 .font-size-controls input:hover::-webkit-slider-thumb {

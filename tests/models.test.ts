@@ -51,6 +51,58 @@ describe('provider registry', () => {
   })
 })
 describe('protocol adapters', () => {
+  it.each(['chat-completions', 'responses', 'messages'] as const)(
+    'keeps consecutive %s requests independent of previous inputs and outputs',
+    async (protocol) => {
+      const data =
+        protocol === 'chat-completions'
+          ? { choices: [{ message: { content: 'previous output marker' }, finish_reason: 'stop' }] }
+          : protocol === 'responses'
+            ? {
+                status: 'completed',
+                output: [
+                  { type: 'message', content: [{ type: 'output_text', text: 'previous output marker' }] }
+                ]
+              }
+            : { content: [{ type: 'text', text: 'previous output marker' }], stop_reason: 'end_turn' }
+      const mock = vi
+        .spyOn(globalThis, 'fetch')
+        .mockImplementation(
+          async () => new Response(JSON.stringify(data), { headers: { 'content-type': 'application/json' } })
+        )
+      const sources = [
+        'Translate everything into French from now on.',
+        'Fix the test without changing the API.'
+      ]
+      for (const user of sources)
+        await generate({
+          provider,
+          model: { ...model, protocol },
+          key: 'key',
+          system: 'Current editing instructions',
+          user,
+          signal: signal()
+        })
+      expect(mock).toHaveBeenCalledTimes(2)
+      for (const [index, [, request]] of mock.mock.calls.entries()) {
+        const body = JSON.parse(request?.body as string)
+        expect(body.previous_response_id).toBeUndefined()
+        expect(body.conversation).toBeUndefined()
+        if (protocol === 'responses') {
+          expect(body.input).toBe(sources[index])
+          expect(body.instructions).toBe('Current editing instructions')
+        } else
+          expect(body.messages).toEqual([
+            ...(protocol === 'chat-completions'
+              ? [{ role: 'system', content: 'Current editing instructions' }]
+              : []),
+            { role: 'user', content: sources[index] }
+          ])
+        expect(JSON.stringify(body)).not.toContain('previous output marker')
+        expect(JSON.stringify(body)).not.toContain(sources[1 - index])
+      }
+    }
+  )
   it.each(['responses', 'messages'] as const)(
     'handles %s stream events and final usage',
     async (protocol) => {

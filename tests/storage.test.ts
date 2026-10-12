@@ -139,6 +139,74 @@ describe('history and durable summary scheduling', () => {
     expect(db.jobs()).toHaveLength(0)
     expect(db.pendingCount()).toBe(11)
   })
+  it('saves the corrected output while excluding casing-only edit records', () => {
+    const db = store()
+    const record = item()
+    record.input = 'please explain me this.'
+    record.result.changes.push({
+      from: 'please',
+      to: 'Please',
+      category: 'grammar',
+      kind: 'correction',
+      reason: 'Capitalize the start.',
+      confidence: 1
+    })
+    db.saveHistory(record)
+    expect(db.historyItem(record.id)?.result.changes).toHaveLength(1)
+    expect(db.historyItem(record.id)?.result.outputText).toBe('Please explain this to me.')
+    expect(record.result.changes).toHaveLength(2)
+  })
+  it('removes legacy casing edits and their pattern evidence without losing prompts or settings', () => {
+    const path = mkdtempSync(join(tmpdir(), 'prompt-tune-migration-'))
+    directories.push(path)
+    let db = new Store(join(path, 'state.sqlite'))
+    db.saveSettings({ ...db.settings(), fontSize: 20 })
+    const grammar = item()
+    db.saveHistory(grammar)
+    const casing = item()
+    casing.input = 'fix the bug'
+    casing.result.outputText = 'Fix the bug.'
+    casing.result.changes = [
+      {
+        from: 'fix the bug',
+        to: 'Fix the bug.',
+        category: 'grammar',
+        kind: 'correction',
+        reason: 'Casing.',
+        confidence: 1
+      }
+    ]
+    db.db
+      .prepare('INSERT INTO history(id,input,output,created_at,data) VALUES(?,?,?,?,?)')
+      .run(casing.id, casing.input, casing.result.outputText, casing.createdAt, JSON.stringify(casing))
+    const [job] = db.transaction(() => db.enqueue(true))
+    db.setJob(job, 'running')
+    db.completeJob(
+      job,
+      [grammar, casing].map((record) => ({
+        pattern: record.id,
+        title: 'Legacy pattern',
+        category: 'grammar',
+        explanation: 'Legacy rule.',
+        from: record.result.changes[0].from,
+        to: record.result.changes[0].to,
+        evidence: record.result.changes.map(({ from, to }) => ({ historyId: record.id, from, to }))
+      })),
+      'en'
+    )
+    expect(db.insights()).toHaveLength(2)
+    db.db.exec('PRAGMA user_version = 1')
+    db.close()
+    db = new Store(join(path, 'state.sqlite'))
+    stores.push(db)
+    expect(db.historyCount()).toBe(2)
+    expect(db.historyItem(casing.id)?.result).toMatchObject({ outputText: 'Fix the bug.', changes: [] })
+    expect(db.historyItem(grammar.id)?.result.changes).toHaveLength(1)
+    expect(db.insights()).toHaveLength(1)
+    expect(db.insights()[0].historyIds).toEqual([grammar.id])
+    expect(db.settings().fontSize).toBe(20)
+    expect(db.providers().some((provider) => provider.id === 'deepseek')).toBe(true)
+  })
 })
 describe('credential vault', () => {
   it('persists encrypted keys and returns no plaintext file', () => {

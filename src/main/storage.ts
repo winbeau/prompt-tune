@@ -2,6 +2,7 @@ import { DatabaseSync } from 'node:sqlite'
 import { randomUUID } from 'node:crypto'
 import { chmodSync, existsSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { isPresentationOnlyChange, substantiveChanges } from '../shared/changes'
 import {
   AppError,
   defaultSettings,
@@ -101,7 +102,25 @@ export class Store {
       CREATE TABLE IF NOT EXISTS insights (id TEXT PRIMARY KEY, pattern TEXT NOT NULL UNIQUE, data TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'active');
       CREATE TABLE IF NOT EXISTS evidence (insight_id TEXT REFERENCES insights(id) ON DELETE CASCADE, history_id TEXT REFERENCES history(id) ON DELETE CASCADE, source TEXT NOT NULL, target TEXT NOT NULL, PRIMARY KEY(insight_id,history_id,source));
       CREATE TABLE IF NOT EXISTS attempts (id TEXT PRIMARY KEY, task TEXT NOT NULL, created_at TEXT NOT NULL, provider_id TEXT NOT NULL, model_id TEXT NOT NULL, status TEXT NOT NULL, data TEXT NOT NULL);
-      PRAGMA user_version = 1;`)
+      `)
+    if (Number(this.db.prepare('PRAGMA user_version').get()!.user_version) < 2) {
+      this.transaction(() => {
+        for (const row of this.db.prepare('SELECT id,data FROM history').all()) {
+          const item = JSON.parse(row.data as string) as HistoryItem
+          const changes = substantiveChanges(item.result.changes)
+          if (changes.length === item.result.changes.length) continue
+          for (const change of item.result.changes)
+            if (isPresentationOnlyChange(change.from, change.to))
+              this.db
+                .prepare('DELETE FROM evidence WHERE history_id=? AND source=? AND target=?')
+                .run(row.id, change.from, change.to)
+          item.result.changes = changes
+          this.db.prepare('UPDATE history SET data=? WHERE id=?').run(JSON.stringify(item), row.id)
+        }
+        this.recountInsights()
+        this.db.exec('PRAGMA user_version = 2')
+      })
+    }
     if (!this.db.prepare('SELECT id FROM settings WHERE id=1').get())
       this.saveSettings(structuredClone(defaultSettings))
     for (const provider of presets)
@@ -170,6 +189,7 @@ export class Store {
     )
   }
   saveHistory(item: HistoryItem): void {
+    item = { ...item, result: { ...item.result, changes: substantiveChanges(item.result.changes) } }
     this.transaction(() => {
       if (this.historyItem(item.id)) {
         this.invalidateJobs(item.id)

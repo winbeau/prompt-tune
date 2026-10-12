@@ -189,6 +189,7 @@ function requestBody(
   system: string,
   user: string
 ): { path: string; body: Record<string, unknown> } {
+  // Every foreground edit and summary starts a new request; never append conversation history.
   const max = Math.min(model.maxOutput ?? 8192, 16384)
   const stream = model.streaming !== false
   if (model.protocol === 'responses')

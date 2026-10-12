@@ -48,15 +48,22 @@ export function App() {
   useLayoutEffect(() => {
     if (state) document.documentElement.style.fontSize = `${state.settings.fontSize}px`
   }, [state?.settings.fontSize])
-  useEffect(() => {
+  useLayoutEffect(() => {
     const preference = window.matchMedia('(prefers-color-scheme: dark)')
     const apply = () => {
-      document.documentElement.dataset.theme =
+      const root = document.documentElement
+      const theme =
         state?.settings.theme === 'system' || !state?.settings.theme
           ? preference.matches
             ? 'black'
             : 'light'
           : state.settings.theme
+      if (root.dataset.theme === theme) return
+      root.dataset.themeChanging = 'true'
+      root.dataset.theme = theme
+      // Commit the whole palette together, preserving height and motion transitions.
+      void root.offsetWidth
+      delete root.dataset.themeChanging
     }
     apply()
     preference.addEventListener('change', apply)

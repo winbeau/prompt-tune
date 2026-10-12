@@ -1,6 +1,17 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Check, ChevronDown, Copy, History, LoaderCircle, Pin, Settings2, Square, X } from 'lucide-react'
+import {
+  ArrowRight,
+  Check,
+  ChevronDown,
+  Copy,
+  History,
+  LoaderCircle,
+  Pin,
+  Settings2,
+  Square,
+  X
+} from 'lucide-react'
 import type { Mode, PromptResult } from '../../shared/types'
 import { useApp } from './App'
 import { WindowControls } from './WindowControls'
@@ -12,7 +23,8 @@ function useTextHeight(value: string, widthRef: React.RefObject<HTMLElement | nu
     const measure = () => {
       if (mirror.current) {
         const lineHeight = Number.parseFloat(getComputedStyle(mirror.current).lineHeight)
-        setHeight(Math.ceil(Math.max(lineHeight * 3 + 24, Math.min(mirror.current.scrollHeight + 24, 360))))
+        const contentHeight = mirror.current.getBoundingClientRect().height + 2
+        setHeight(Math.ceil(Math.max(lineHeight * 3 + 24, contentHeight)))
       }
     }
     measure()
@@ -93,18 +105,12 @@ export function Editor() {
   useLayoutEffect(() => {
     const element = contentRef.current
     if (!element) return
-    let timer: ReturnType<typeof setTimeout>
     const observer = new ResizeObserver(() => {
-      clearTimeout(timer)
-      timer = setTimeout(
-        () => void window.desktop.resizeContent(element.getBoundingClientRect().height + 40),
-        40
-      )
+      void window.desktop.resizeContent(element.getBoundingClientRect().height + 40)
     })
     observer.observe(element)
     return () => {
       observer.disconnect()
-      clearTimeout(timer)
     }
   }, [])
   useEffect(
@@ -142,8 +148,17 @@ export function Editor() {
         event.keyCode === 229
       )
         return
-      if (document.activeElement !== inputRef.current && !event.metaKey && !event.ctrlKey) return
+      const target = event.target
+      // Enter submits from the mode switch too; Space still toggles it normally.
+      if (
+        target !== inputRef.current &&
+        !(target instanceof Element && target.closest('.mode-slider')) &&
+        !event.metaKey &&
+        !event.ctrlKey
+      )
+        return
       event.preventDefault()
+      if (event.repeat) return
       runRef.current()
     }
     window.addEventListener('keydown', listener)
@@ -257,7 +272,10 @@ export function Editor() {
                 role="switch"
                 aria-label={t('switchMode')}
                 aria-checked={mode === 'translate'}
-                onClick={() => reset(text, mode === 'tune' ? 'translate' : 'tune')}
+                onClick={() => {
+                  reset(text, mode === 'tune' ? 'translate' : 'tune')
+                  inputRef.current?.focus()
+                }}
               >
                 <span />
               </button>
@@ -265,8 +283,8 @@ export function Editor() {
           </div>
           <div className="compact-field" ref={inputBox} style={{ height: inputMeasure.height }}>
             <div className="text-mirror" ref={inputMeasure.mirror} aria-hidden="true">
-              {text || ' '}
-              {'\n'}
+              {text}
+              {'\u200b'}
             </div>
             <textarea
               id="prompt-input"
@@ -355,8 +373,8 @@ export function Editor() {
             aria-label={t('result')}
           >
             <div className="text-mirror" ref={outputMeasure.mirror} aria-hidden="true">
-              {output || failure || ' '}
-              {'\n'}
+              {output || failure}
+              {busy ? <span className="stream-caret" /> : '\u200b'}
             </div>
             <div
               className={`compact-result ${busy ? 'streaming-text' : ''}`}
@@ -368,32 +386,44 @@ export function Editor() {
           </div>
           {result?.changes.length ? (
             <div className="compact-edit-notes">
-              <button className="text-button" aria-expanded={expanded} onClick={() => setExpanded(!expanded)}>
+              <button
+                className="text-button"
+                aria-expanded={expanded}
+                aria-controls="edit-details"
+                onClick={() => setExpanded(!expanded)}
+              >
                 {t('changes', { count: result.changes.length })}
-                <ChevronDown size={11} />
+                <ChevronDown size={12} className={expanded ? 'rotated' : ''} />
               </button>
               {expanded && (
-                <div className="changes-list">
+                <div className="changes-list" id="edit-details">
                   {result.changes.map((change, index) => (
                     <article className="change-card" key={index}>
-                      <div>
-                        <span className={`change-tag ${change.kind}`}>{t(change.kind)}</span>
-                        <span className="change-diff">
-                          <del>{change.from}</del> → <ins>{change.to}</ins>
+                      <div className="change-heading">
+                        <span className={`change-tag ${change.kind}`}>
+                          {change.kind === 'correction' && <Check size={11} aria-hidden="true" />}
+                          {t(change.kind)}
                         </span>
+                        {change.kind === 'correction' && current.current && (
+                          <button
+                            className="icon-button change-dismiss"
+                            aria-label={t('dismissChange')}
+                            title={t('dismissChange')}
+                            onClick={async () => {
+                              await perform(window.desktop.rejectChange(current.current!.id, change.from))
+                              setResult({ ...result, changes: result.changes.filter((_, i) => i !== index) })
+                            }}
+                          >
+                            <X size={13} />
+                          </button>
+                        )}
+                      </div>
+                      <div className="change-diff">
+                        <del>{change.from}</del>
+                        <ArrowRight size={14} aria-hidden="true" />
+                        <ins>{change.to}</ins>
                       </div>
                       <p>{change.reason}</p>
-                      {change.kind === 'correction' && current.current && (
-                        <button
-                          className="text-button muted"
-                          onClick={async () => {
-                            await perform(window.desktop.rejectChange(current.current!.id, change.from))
-                            setResult({ ...result, changes: result.changes.filter((_, i) => i !== index) })
-                          }}
-                        >
-                          {t('dismissChange')}
-                        </button>
-                      )}
                     </article>
                   ))}
                 </div>

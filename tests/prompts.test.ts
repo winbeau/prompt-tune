@@ -30,6 +30,52 @@ describe('faithful prompt editing', () => {
     expect(parsed.changes).toHaveLength(1)
     expect(parsed.changes[0].kind).toBe('translation_choice')
   })
+  it('applies casing and presentation fixes without recording them as edits', () => {
+    const input = 'the Claude Code color is lost'
+    const output = 'The Claude Code color is lost.'
+    const parsed = parseResult(
+      response(output, [
+        {
+          from: input,
+          to: output,
+          category: 'grammar',
+          kind: 'correction',
+          reason: 'Capitalize the sentence and add a period.',
+          confidence: 0.95
+        }
+      ]),
+      input,
+      'tune'
+    )
+    expect(parsed.outputText).toBe(output)
+    expect(parsed.changes).toEqual([])
+  })
+  it('retains real grammar, collocation and punctuation fixes alongside silent casing', () => {
+    const corrections = [
+      ['some question', 'some questions'],
+      ['key-cause', 'root cause'],
+      ['lets fix it', "Let's fix it"],
+      ['eat Grandma', 'eat, Grandma'],
+      ['is lost, please', 'is lost. Please']
+    ]
+    for (const [from, to] of corrections) {
+      const parsed = parseResult(
+        response(to, [
+          {
+            from,
+            to,
+            category: 'grammar',
+            kind: 'correction',
+            reason: 'Fix the expression.',
+            confidence: 0.9
+          }
+        ]),
+        from,
+        'tune'
+      )
+      expect(parsed.changes).toHaveLength(1)
+    }
+  })
   it('requires meaningful complete results or an explained clarification', () => {
     expect(() => parseResult(response(''), 'hi', 'tune')).toThrow('invalid_result')
     expect(() =>
