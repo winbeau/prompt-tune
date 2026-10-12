@@ -1,0 +1,41 @@
+appId: dev.winbeau.prompt-tune
+productName: PromptTune
+copyright: Copyright © 2026 winbeau
+directories:
+  output: release
+  buildResources: build
+files:
+  - out/**/*
+  - package.json
+  - LICENSE
+  - THIRD_PARTY_NOTICES.md
+  - build/trayTemplate.png
+asar: true
+extraResources:
+  - from: node_modules/electron/dist/LICENSE
+    to: licenses/ELECTRON-LICENSE
+  - from: node_modules/electron/dist/LICENSES.chromium.html
+    to: licenses/LICENSES.chromium.html
+mac:
+  category: public.app-category.productivity
+  target:
+    - target: dmg
+      arch: [arm64, x64]
+    - target: zip
+      arch: [arm64, x64]
+  identity: null
+  hardenedRuntime: false
+  icon: build/icon.icns
+dmg:
+  title: PromptTune
+win:
+  target: nsis
+  icon: build/icon.ico
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+artifactName: PromptTune-${version}-${os}-${arch}.${ext}
+publish:
+  provider: github
+  owner: winbeau
+  repo: prompt-tune

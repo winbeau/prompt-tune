@@ -12,3 +12,5 @@ coverage/
 !.env.example
 .local/
 user-data/
+work/
+build/icon.iconset/

@@ -1,7 +1,7 @@
 # 自研模型管理设计
 
 - 日期：2026-10-11
-- 状态：接口与行为规划，尚未实现
+- 状态：轻量模型层已实现。本文包含后续设计目标；v0.1.0 的确切范围与未实现项见 [实现记录](IMPLEMENTATION.md)。
 
 ## 1. 决策与边界
 
@@ -16,13 +16,13 @@
 
 ## 2. 从 Pi 学习什么
 
-| 设计思路 | 在 PromptTune 中的实现方式 |
-| --- | --- |
+| 设计思路               | 在 PromptTune 中的实现方式                                       |
+| ---------------------- | ---------------------------------------------------------------- |
 | Provider 与 Model 分开 | 一个供应商配置包含地址和凭据引用，一个模型声明自己的协议与能力。 |
-| 内置目录与用户覆盖 | 内置预设、发现列表、手动模型和字段覆盖分层合并。 |
-| 可用性与模型列表分开 | “目录里存在”不代表“有凭据、协议受支持、可成功请求”。 |
-| 能力约束请求参数 | 按模型能力发送 JSON、流式、采样和思考参数。 |
-| 凭据与配置独立 | 凭据加密保存，配置只保存引用，导出可脱敏。 |
+| 内置目录与用户覆盖     | 内置预设、发现列表、手动模型和字段覆盖分层合并。                 |
+| 可用性与模型列表分开   | “目录里存在”不代表“有凭据、协议受支持、可成功请求”。             |
+| 能力约束请求参数       | 按模型能力发送 JSON、流式、采样和思考参数。                      |
+| 凭据与配置独立         | 凭据加密保存，配置只保存引用，导出可脱敏。                       |
 
 Pi 的当前上游为 [earendil-works/pi](https://github.com/earendil-works/pi)，旧 `badlogic/pi-mono` 地址已重定向。
 详细核对的源文件和固定提交见 [调研记录](RESEARCH.md)。
@@ -49,13 +49,13 @@ ModelService
 
 ## 4. 配置数据
 
-| 对象 | 必要字段或行为 |
-| --- | --- |
-| ProviderConfig | 稳定实例 ID、显示名、preset、baseUrl、默认 protocol、credentialRef、enabled、超时。 |
-| ModelConfig | providerId + 原始 modelId、显示名、protocol override、启用/收藏、能力、限制、兼容配置。 |
-| TaskBinding | translate / tune / summarize 各自的 providerId、modelId、参数和可选备用模型。 |
-| CredentialRef | keychain 引用或显式环境变量引用；服务无需认证时可设为 none。 |
-| CapabilityValue | supported / unsupported / unknown，附来源和最近确认时间。 |
+| 对象            | 必要字段或行为                                                                          |
+| --------------- | --------------------------------------------------------------------------------------- |
+| ProviderConfig  | 稳定实例 ID、显示名、preset、baseUrl、默认 protocol、credentialRef、enabled、超时。     |
+| ModelConfig     | providerId + 原始 modelId、显示名、protocol override、启用/收藏、能力、限制、兼容配置。 |
+| TaskBinding     | translate / tune / summarize 各自的 providerId、modelId、参数和可选备用模型。           |
+| CredentialRef   | keychain 引用或显式环境变量引用；服务无需认证时可设为 none。                            |
+| CapabilityValue | supported / unsupported / unknown，附来源和最近确认时间。                               |
 
 模型能力包括 text、stream、JSON object/schema、thinking、temperature、最大输入/输出等。
 目录价格和 token 限制均附更新时间与来源；未知价格显示未知，不按零元统计。
@@ -69,12 +69,12 @@ ModelConfig 使用独立保存的原始 modelId 发请求，不随意附加或�
 
 ## 5. 供应商预设与发现
 
-| 预设 | Base URL | 发现入口 | 首轮协议 |
-| --- | --- | --- | --- |
-| DeepSeek | `https://api.deepseek.com` | `/models` | chat-completions |
-| OpenCode Zen | `https://opencode.ai/zen/v1` | `/models` | 按模型元数据路由；先启用 chat-completions。 |
-| OpenCode Go | `https://opencode.ai/zen/go/v1` | `/models` | 按模型元数据路由；先启用 chat-completions。 |
-| Third-party | 用户填写 API 根地址 | 兼容 `/models`，可禁用发现 | 用户明确选择已支持协议。 |
+| 预设         | Base URL                        | 发现入口                   | 首轮协议                                    |
+| ------------ | ------------------------------- | -------------------------- | ------------------------------------------- |
+| DeepSeek     | `https://api.deepseek.com`      | `/models`                  | chat-completions                            |
+| OpenCode Zen | `https://opencode.ai/zen/v1`    | `/models`                  | 按模型元数据路由；先启用 chat-completions。 |
+| OpenCode Go  | `https://opencode.ai/zen/go/v1` | `/models`                  | 按模型元数据路由；先启用 chat-completions。 |
+| Third-party  | 用户填写 API 根地址             | 兼容 `/models`，可禁用发现 | 用户明确选择已支持协议。                    |
 
 地址与协议来自 [DeepSeek 文档](https://api-docs.deepseek.com/api/list-models/)、[OpenCode Zen](https://opencode.ai/docs/zen/) 和 [OpenCode Go](https://opencode.ai/docs/go/)，实现时重新验证。
 API 根地址允许包含 `/v1` 或网关子路径；统一拼接 endpoint，避免重复 `/v1` 和丢失子路径。
@@ -96,11 +96,11 @@ HTTPS 为默认；本地兼容服务允许 loopback HTTP，远程 HTTP 需用户
 
 ## 6. 协议适配与供应商差异
 
-| 协议 | 路由 | 实现要点 |
-| --- | --- | --- |
+| 协议             | 路由                | 实现要点                                                        |
+| ---------------- | ------------------- | --------------------------------------------------------------- |
 | chat-completions | `/chat/completions` | messages、content delta、usage、finish reason，字段兼容可配置。 |
-| responses | `/responses` | input、输出事件、最终文本、usage 和中断状态独立解析。 |
-| messages | `/messages` | system 与 messages 分离、内容块、SSE 事件及供应商认证要求。 |
+| responses        | `/responses`        | input、输出事件、最终文本、usage 和中断状态独立解析。           |
+| messages         | `/messages`         | system 与 messages 分离、内容块、SSE 事件及供应商认证要求。     |
 
 OpenCode 官方列出了多种 endpoint；只支持 Chat Completions 时，仅启用明确兼容的模型。
 Responses / Messages 原生模型在对应适配器完成前显示原因并不可选；Gemini 原生和分类/图像模型暂不启用。
