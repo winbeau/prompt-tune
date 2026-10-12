@@ -26,7 +26,14 @@ const mock = createServer(async (request, response) => {
   const system = body.messages?.[0]?.content ?? ''
   const input = body.messages?.at(-1)?.content ?? ''
   let result
-  if (system.includes('Analyze these PromptTune')) {
+  if (input === 'Long output probe') {
+    result = {
+      status: 'completed',
+      outputText: 'First line.\nSecond line.\nThird line.\nFourth line.\nFifth line.\nSixth line.',
+      changes: [],
+      ambiguities: []
+    }
+  } else if (system.includes('Analyze these PromptTune')) {
     const records = JSON.parse(input).records.filter((record) => record.mode === 'tune')
     result = {
       insights: [
@@ -77,10 +84,12 @@ const mock = createServer(async (request, response) => {
     }
   response.writeHead(200, { 'Content-Type': 'text/event-stream' })
   const text = JSON.stringify(result)
-  for (let i = 0; i < text.length; i += 23)
+  for (let i = 0; i < text.length; i += 23) {
     response.write(
       `data: ${JSON.stringify({ choices: [{ delta: { content: text.slice(i, i + 23) }, finish_reason: null }] })}\n\n`
     )
+    await new Promise((resolve) => setTimeout(resolve, 3))
+  }
   response.write(
     `data: ${JSON.stringify({ choices: [{ delta: {}, finish_reason: 'stop' }], usage: { prompt_tokens: 42, completion_tokens: 32 } })}\n\n`
   )
@@ -136,6 +145,21 @@ try {
   const errors = []
   page.on('pageerror', (error) => errors.push(error.message))
   await page.waitForSelector('#prompt-input')
+  await page.waitForTimeout(350)
+  await expect(page.getByRole('button', { name: 'Copy prompt' })).toBeDisabled()
+  await expect
+    .poll(() =>
+      page
+        .locator('.compact-field')
+        .first()
+        .evaluate((el) => Math.round(el.getBoundingClientRect().height))
+    )
+    .toBe(84)
+  await expect
+    .poll(() =>
+      page.locator('.compact-output').evaluate((el) => Math.round(el.getBoundingClientRect().height))
+    )
+    .toBe(84)
   await page.screenshot({ path: join(artifactDir, 'first-launch.png') })
   let props = await desktop.evaluate(({ BrowserWindow }) => {
     const win = BrowserWindow.getAllWindows().find(
@@ -157,6 +181,27 @@ try {
   checked(
     'Native floating window is visible, always on top, resizable, and cannot enter fullscreen or maximize'
   )
+  assert(props.bounds.height <= 340, 'Empty prompt panel must stay compact')
+  assert.equal(
+    await page.locator('.compact-submit kbd').evaluate((el) => getComputedStyle(el).backgroundColor),
+    'rgba(0, 0, 0, 0)'
+  )
+  if (process.platform === 'darwin') {
+    assert.equal(await page.locator('.window-controls button').count(), 2)
+    await page.getByRole('button', { name: 'Minimize window', exact: true }).click()
+    await expect
+      .poll(() => desktop.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].isMinimized()))
+      .toBe(true)
+    await desktop.evaluate(({ Menu }) =>
+      Menu.getApplicationMenu()
+        .items[0].submenu.items.find((item) => item.label === 'Show PromptTune')
+        .click()
+    )
+    await expect
+      .poll(() => desktop.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].isMinimized()))
+      .toBe(false)
+    checked('Two window controls work: minimize, then restore through Show PromptTune; fullscreen is absent')
+  }
   await desktop.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setSize(540, 690))
   const resized = await desktop.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].getBounds())
   assert.equal(resized.width, 540)
@@ -172,9 +217,20 @@ try {
   checked('Command/Control+, opens the Settings window')
   await settings.getByRole('combobox').first().selectOption('zh-CN')
   await expect(settings.getByRole('button', { name: '模型管理', exact: true })).toBeVisible()
-  await expect(page.getByRole('button', { name: /连接 DeepSeek/ }).first()).toBeVisible()
+  await expect(page.getByRole('button', { name: '配置 API key' })).toBeVisible()
   checked('Interface language switches live in both windows')
   await settings.getByRole('combobox').first().selectOption('en')
+  for (const theme of ['light', 'black']) {
+    await settings.getByLabel('Color theme').selectOption(theme)
+    await expect.poll(() => page.evaluate(() => document.documentElement.dataset.theme)).toBe(theme)
+    await expect.poll(() => settings.evaluate(() => document.documentElement.dataset.theme)).toBe(theme)
+    await page.waitForTimeout(250)
+    await page.screenshot({ path: join(artifactDir, `compact-${theme}.png`) })
+    await settings.screenshot({ path: join(artifactDir, `settings-${theme}.png`) })
+  }
+  await settings.getByLabel('Color theme').selectOption('system')
+  assert.equal((await page.evaluate(() => window.desktop.state())).data.settings.theme, 'system')
+  checked('Light, black and system themes synchronize across windows')
   await settings.getByRole('button', { name: 'Models', exact: true }).click()
   const address = settings.getByLabel('API base URL')
   await address.fill(`http://127.0.0.1:${port}`)
@@ -191,8 +247,39 @@ try {
   await expect.poll(() => desktop.windows().filter((page) => page.url().includes('settings')).length).toBe(0)
   checked('Command/Control+W closes the Settings window')
   await page.bringToFront()
+  await page.locator('#prompt-input').fill('one\ntwo\nthree')
+  await expect
+    .poll(() =>
+      page
+        .locator('.compact-field')
+        .first()
+        .evaluate((el) => Math.round(el.getBoundingClientRect().height))
+    )
+    .toBe(84)
   await page.locator('#prompt-input').fill('Please explain me this.')
-  await page.keyboard.press(process.platform === 'darwin' ? 'Meta+Enter' : 'Control+Enter')
+  await page.locator('#prompt-input').fill('one\ntwo\nthree\nfour\nfive')
+  await expect
+    .poll(() =>
+      page
+        .locator('.compact-field')
+        .first()
+        .evaluate((el) => el.getBoundingClientRect().height)
+    )
+    .toBeGreaterThan(100)
+  await page.locator('#prompt-input').fill('Please explain me this.')
+  await page.locator('#prompt-input').press('Shift+Enter')
+  await expect(page.locator('#prompt-input')).toHaveValue('Please explain me this.\n')
+  assert.equal(requests.length, 0)
+  await page
+    .locator('#prompt-input')
+    .evaluate((element) =>
+      element.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, isComposing: true }))
+    )
+  assert.equal(requests.length, 0)
+  checked('Three-line input grows for longer text; Shift+Return and IME composition do not submit')
+  await page.locator('#prompt-input').press('Enter')
+  await expect(page.locator('.compact-submit')).toHaveClass(/is-running/)
+  await expect(page.getByRole('button', { name: 'Copy prompt' })).toBeDisabled()
   await expect(page.getByTestId('result-text')).toHaveText('Please explain this to me.', { timeout: 15000 })
   await page.getByRole('button', { name: 'Copy prompt' }).click()
   assert.equal(
@@ -200,15 +287,29 @@ try {
     'Please explain this to me.'
   )
   assert.deepEqual(requests[0].thinking, { type: 'disabled' })
-  checked('Tune runs with Command/Control+Enter and copies only the corrected prompt')
-  await page.getByRole('button', { name: /Translate CN/ }).click()
+  checked('Tune runs with Return and copies only the corrected prompt')
+  const beforeLongProbe = (await page.evaluate(() => window.desktop.state())).data
+  await page.evaluate(
+    (settings) => window.desktop.saveSettings({ ...settings, saveHistory: false }),
+    beforeLongProbe.settings
+  )
+  await page.locator('#prompt-input').fill('Long output probe')
+  await page.locator('#prompt-input').press('Enter')
+  await expect(page.getByTestId('result-text')).toContainText('Sixth line.')
+  await expect
+    .poll(() => page.locator('.compact-output').evaluate((el) => el.getBoundingClientRect().height))
+    .toBeGreaterThan(130)
+  assert.equal((await page.evaluate(() => window.desktop.state())).data.historyCount, 1)
+  await page.evaluate((settings) => window.desktop.saveSettings(settings), beforeLongProbe.settings)
+  checked('Output grows beyond three lines; disabling history excludes a round from summaries')
+  await page.getByRole('switch', { name: 'Translate Chinese to English' }).click()
   await page.locator('#prompt-input').fill('修复 bug，不要改动 `user_id`。')
   await page.getByRole('button', { name: 'Translate prompt', exact: true }).click()
   await expect(page.getByTestId('result-text')).toHaveText('Fix the bug without changing `user_id`.', {
     timeout: 15000
   })
   checked('CN→EN translation uses its own prompt and preserves technical identifiers')
-  await page.getByRole('button', { name: /Tune EN/ }).click()
+  await page.getByRole('switch', { name: 'Translate Chinese to English' }).click()
   for (let i = 0; i < 8; i++) {
     await page.locator('#prompt-input').fill(`Please explain me this. Round ${i + 3}.`)
     await page.getByRole('button', { name: 'Tune prompt', exact: true }).click()

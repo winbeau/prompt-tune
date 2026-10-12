@@ -59,6 +59,7 @@ export type Binding = { providerId: string; modelId: string }
 
 export const settingsSchema = z.object({
   language: z.enum(['system', 'en', 'zh-CN']),
+  theme: z.enum(['system', 'light', 'black']).default('system'),
   explanationLanguage: z.enum(['ui', 'en', 'zh-CN']),
   shortcut: z.string().min(1).max(100),
   alwaysOnTop: z.boolean(),
@@ -174,6 +175,8 @@ export type DesktopAPI = {
   importConfig(): Promise<Reply<AppState | null>>
   openSettings(tab?: string): Promise<Reply<null>>
   closeWindow(): Promise<Reply<null>>
+  minimizeWindow(): Promise<Reply<null>>
+  resizeContent(height: number): Promise<Reply<null>>
   copy(text: string): Promise<Reply<null>>
   paste(): Promise<Reply<string>>
   onState(listener: (state: AppState) => void): () => void
@@ -192,6 +195,7 @@ export class AppError extends Error {
 
 export const defaultSettings: Settings = {
   language: 'system',
+  theme: 'system',
   explanationLanguage: 'ui',
   shortcut: 'CommandOrControl+Shift+Space',
   alwaysOnTop: true,

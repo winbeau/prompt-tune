@@ -1,6 +1,6 @@
 {
   "name": "prompt-tune",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "A floating desktop companion for translating and tuning English prompts.",
   "main": "out/main/index.js",
   "author": "winbeau",

@@ -4,6 +4,7 @@ import { X, Settings2, History, Lightbulb, SlidersHorizontal, Check, LoaderCircl
 import type { AppState, Reply } from '../../shared/types'
 import i18n from './i18n'
 import { Editor } from './Editor'
+import { WindowControls } from './WindowControls'
 import { General, Models, HistoryPage, InsightsPage } from './Settings'
 
 type Context = {
@@ -44,6 +45,20 @@ export function App() {
     }
   }, [message])
   useEffect(() => window.onSettingsTab(setTab), [])
+  useEffect(() => {
+    const preference = window.matchMedia('(prefers-color-scheme: dark)')
+    const apply = () => {
+      document.documentElement.dataset.theme =
+        state?.settings.theme === 'system' || !state?.settings.theme
+          ? preference.matches
+            ? 'black'
+            : 'light'
+          : state.settings.theme
+    }
+    apply()
+    preference.addEventListener('change', apply)
+    return () => preference.removeEventListener('change', apply)
+  }, [state?.settings.theme])
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key === ',') {
@@ -97,6 +112,7 @@ export function App() {
         {settings ? (
           <>
             <header className="titlebar settings-title">
+              <WindowControls />
               <span className="window-title">
                 PromptTune <span>/ {t('settings')}</span>
               </span>

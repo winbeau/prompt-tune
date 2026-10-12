@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.1
+
+- Compact five-row panel with three-line input/output that smoothly grow with content.
+- Return submits; Shift+Return adds a line, with IME composition protection.
+- System, Light and Black themes, synchronized across windows and persisted.
+- Refined button states, streaming animation, copy action and model picker.
+- Close and minimize controls; removed the unavailable fullscreen control.
+
 ## 0.1.0
 
 - Floating, resizable desktop panel with native macOS shortcuts and tray access.

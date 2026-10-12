@@ -11,7 +11,8 @@ import {
   nativeImage,
   protocol,
   net,
-  screen
+  screen,
+  nativeTheme
 } from 'electron'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join, resolve, sep } from 'node:path'
@@ -39,12 +40,18 @@ const string = z.string().max(10000)
 function text(en: string, zh: string): string {
   return service.locale() === 'zh-CN' ? zh : en
 }
+function updateTheme(settings: Settings): void {
+  nativeTheme.themeSource = settings.theme === 'black' ? 'dark' : settings.theme
+  for (const window of BrowserWindow.getAllWindows())
+    window.setBackgroundColor(nativeTheme.shouldUseDarkColors ? '#111113' : '#fafafa')
+}
 function loadWindow(window: BrowserWindow, settings = false, tab = 'general'): void {
   const suffix = settings ? `?window=settings#${tab}` : ''
   if (process.env.ELECTRON_RENDERER_URL) void window.loadURL(`${process.env.ELECTRON_RENDERER_URL}${suffix}`)
   else void window.loadURL(`prompt-tune://bundle/index.html${suffix}`)
 }
 function secureWindow(window: BrowserWindow): void {
+  if (isMac) window.setWindowButtonVisibility(false)
   window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
   window.webContents.on('will-navigate', (event) => event.preventDefault())
   window.webContents.session.setPermissionRequestHandler((_webContents, _permission, callback) =>
@@ -69,12 +76,12 @@ function secureWindow(window: BrowserWindow): void {
   })
 }
 function visibleBounds(settings: Settings) {
-  if (!settings.bounds) return { width: 600, height: 780 }
+  if (!settings.bounds) return { width: 540, height: 328 }
   const bounds = settings.bounds
   const area = screen.getDisplayMatching(bounds).workArea
   return {
-    width: Math.min(Math.max(bounds.width, 480), area.width),
-    height: Math.min(Math.max(bounds.height, 560), area.height),
+    width: Math.min(Math.max(bounds.width, 440), area.width),
+    height: Math.min(Math.max(bounds.height, 304), area.height),
     x: Math.max(area.x, Math.min(bounds.x, area.x + area.width - Math.min(bounds.width, area.width))),
     y: Math.max(area.y, Math.min(bounds.y, area.y + area.height - Math.min(bounds.height, area.height)))
   }
@@ -83,18 +90,17 @@ function createMain(): BrowserWindow {
   const settings = service.store.settings()
   const window = new BrowserWindow({
     ...visibleBounds(settings),
-    minWidth: 480,
-    minHeight: 560,
+    minWidth: 440,
+    minHeight: 304,
     show: false,
     title: 'PromptTune',
-    backgroundColor: '#111816',
+    backgroundColor: nativeTheme.shouldUseDarkColors ? '#111113' : '#fafafa',
     resizable: true,
     fullscreenable: false,
     maximizable: false,
     autoHideMenuBar: true,
     titleBarStyle: 'hiddenInset',
-    trafficLightPosition: { x: 16, y: 19 },
-    ...(isMac ? { type: 'panel' as const } : {}),
+    trafficLightPosition: { x: 12, y: 13 },
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       contextIsolation: true,
@@ -135,6 +141,7 @@ function createMain(): BrowserWindow {
 }
 function showMain(): void {
   const window = mainWindow && !mainWindow.isDestroyed() ? mainWindow : createMain()
+  if (window.isMinimized()) window.restore()
   window.show()
   window.focus()
 }
@@ -152,7 +159,7 @@ function showSettings(tab = 'general'): void {
     minHeight: 560,
     title: text('PromptTune Settings', 'PromptTune 设置'),
     show: false,
-    backgroundColor: '#111816',
+    backgroundColor: nativeTheme.shouldUseDarkColors ? '#111113' : '#fafafa',
     resizable: true,
     fullscreenable: false,
     maximizable: false,
@@ -324,6 +331,28 @@ function registerIpc(): void {
     BrowserWindow.fromWebContents(event.sender)?.close()
     return null
   })
+  handle('window-minimize', (event) => {
+    BrowserWindow.fromWebContents(event.sender)?.minimize()
+    return null
+  })
+  handle('window-content-resize', (event, value) => {
+    const window = BrowserWindow.fromWebContents(event.sender)
+    if (window !== mainWindow || !window) throw new AppError('invalid_sender')
+    const height = z.number().finite().min(200).max(5000).parse(value)
+    const bounds = window.getBounds()
+    const area = screen.getDisplayMatching(bounds).workArea
+    const nextHeight = Math.min(Math.max(Math.ceil(height), 304), area.height)
+    if (Math.abs(nextHeight - bounds.height) > 1)
+      window.setBounds(
+        {
+          ...bounds,
+          height: nextHeight,
+          y: Math.max(area.y, Math.min(bounds.y, area.y + area.height - nextHeight))
+        },
+        isMac
+      )
+    return null
+  })
   handle('copy', async (_event, value) => {
     await clipboard.writeText(z.string().max(100000).parse(value))
     return null
@@ -431,6 +460,7 @@ else {
       service.onState = (state) => broadcast('state-changed', state)
       service.onRun = (event) => broadcast('run-event', event)
       service.onSettings = (settings) => {
+        updateTheme(settings)
         registerShortcut(settings)
         mainWindow?.setAlwaysOnTop(settings.alwaysOnTop, 'floating')
         settingsWindow?.setAlwaysOnTop(settings.alwaysOnTop, 'floating')
@@ -448,6 +478,11 @@ else {
         applicationVersion: app.getVersion(),
         copyright: 'Copyright © 2026 winbeau · MIT',
         website: 'https://github.com/winbeau/prompt-tune'
+      })
+      updateTheme(service.store.settings())
+      nativeTheme.on('updated', () => {
+        for (const window of BrowserWindow.getAllWindows())
+          window.setBackgroundColor(nativeTheme.shouldUseDarkColors ? '#111113' : '#fafafa')
       })
       registerIpc()
       registerShortcut(service.store.settings())

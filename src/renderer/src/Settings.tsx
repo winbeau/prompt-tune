@@ -72,6 +72,18 @@ export function General() {
       </section>
       <section className="settings-section">
         <h2>{t('appearance')}</h2>
+        <label className="theme-preference">
+          {t('theme')}
+          <select
+            aria-label={t('theme')}
+            value={settings.theme}
+            onChange={(event) => update({ theme: event.target.value as Settings['theme'] })}
+          >
+            <option value="system">{t('system')}</option>
+            <option value="light">{t('light')}</option>
+            <option value="black">{t('black')}</option>
+          </select>
+        </label>
         <Toggle
           label={t('alwaysOnTop')}
           checked={settings.alwaysOnTop}
